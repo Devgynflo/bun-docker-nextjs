@@ -405,9 +405,32 @@ Coolify rebuild et redéploie automatiquement.
 | Problème | Piste |
 |---|---|
 | Build échoue sur `bun install` | Vérifiez que `bun.lock` est bien commité dans le dépôt Git. |
+| **502 Bad Gateway** alors que le conteneur est "Running" | Cause la plus fréquente : Docker positionne automatiquement `HOSTNAME=<id du conteneur>`, et le serveur standalone de Next.js écoute sur cette valeur au lieu de `0.0.0.0`, le rendant injoignable par le proxy. Le `Dockerfile.prod` de ce tuto force déjà `ENV HOSTNAME="0.0.0.0"` — si vous êtes toujours bloqué, vérifiez côté VPS avec `docker logs <conteneur>` et `docker exec -it <conteneur> curl -I http://localhost:3000` (voir détail ci-dessous). |
 | App "Running" mais inaccessible | Vérifiez que **Ports Exposes** = `3000` et que le domaine/DNS pointe bien vers le VPS. |
 | Pas de HTTPS | Un domaine valide (DNS propagé) est nécessaire pour que Traefik obtienne un certificat Let's Encrypt. |
 | Changements non pris en compte après un push | Vérifiez que le webhook est bien configuré, ou redéployez manuellement depuis Coolify. |
+
+**Diagnostiquer un Bad Gateway pas à pas** (en SSH sur le VPS) :
+
+```bash
+# 1. Trouver le conteneur de l'app
+docker ps -a | grep <uuid-de-la-resource-coolify>
+
+# 2. Logs runtime (pas les logs de build affichés dans l'UI Coolify)
+docker logs --tail 100 <nom-du-conteneur>
+
+# 3. Vérifier que l'app répond depuis l'intérieur du conteneur
+docker exec -it <nom-du-conteneur> curl -I http://localhost:3000
+
+# 4. Vérifier qu'il est bien sur le réseau "coolify" utilisé par le proxy
+docker inspect <nom-du-conteneur> --format '{{json .NetworkSettings.Networks}}'
+```
+
+Si l'étape 3 échoue déjà (même en interne), le problème vient du serveur
+Next.js lui-même (`HOSTNAME`, crash au démarrage...). Si l'étape 3 réussit
+mais que ça reste en Bad Gateway depuis l'extérieur, le problème vient de la
+configuration du proxy/réseau Coolify (étape 4, ou **Ports Exposes** mal
+configuré).
 
 ---
 

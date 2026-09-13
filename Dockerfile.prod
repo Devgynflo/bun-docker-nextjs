@@ -15,6 +15,13 @@ RUN bun run build
 FROM oven/bun:1 AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+ENV PORT=3000
+# Docker positionne automatiquement HOSTNAME=<id du conteneur>. Le serveur
+# standalone de Next.js fait `process.env.HOSTNAME || "0.0.0.0"` pour choisir
+# son adresse d'écoute : sans ce override, il écoute sur l'ID du conteneur
+# au lieu de 0.0.0.0, ce qui le rend injoignable depuis un reverse proxy
+# (Traefik/Coolify) → "Bad Gateway" alors que le conteneur tourne bien.
+ENV HOSTNAME="0.0.0.0"
 
 # Sortie "standalone" de Next.js : ne contient que le strict nécessaire
 # pour exécuter le serveur (pas besoin de node_modules complet ici).
